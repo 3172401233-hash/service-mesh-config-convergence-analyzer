@@ -1,0 +1,61 @@
+{
+  "controlPlane": {
+    "resources": [
+      { "type": "listener", "name": "http", "version": "v3" },
+      {
+        "type": "route",
+        "name": "main",
+        "version": "v3",
+        "dependsOn": [{ "type": "cluster", "name": "web", "version": "v3" }],
+        "dependencyHistory": {
+          "v2": [{ "type": "cluster", "name": "web", "version": "v2" }],
+          "v3": [{ "type": "cluster", "name": "web", "version": "v3" }]
+        }
+      },
+      {
+        "type": "cluster",
+        "name": "web",
+        "version": "v3",
+        "dependsOn": [{ "type": "endpoint", "name": "web", "version": "v3" }],
+        "dependencyHistory": {
+          "v2": [{ "type": "endpoint", "name": "web", "version": "v2" }],
+          "v3": [{ "type": "endpoint", "name": "web", "version": "v3" }]
+        }
+      },
+      { "type": "endpoint", "name": "web", "version": "v3" }
+    ]
+  },
+  "retryPolicy": { "maxRetries": 3 },
+  "quiescentThresholdMs": 60000,
+  "applyingTimeoutMs": 30000,
+  "rollout": { "startedAtMs": 0, "observedAtMs": 120000 },
+  "endpointFlap": { "windowMs": 5000, "threshold": 4 },
+  "endpointEvents": [
+    { "name": "web", "host": "10.0.0.7:8080", "change": "remove", "atMs": 90000 },
+    { "name": "web", "host": "10.0.0.7:8080", "change": "add", "atMs": 90500 },
+    { "name": "web", "host": "10.0.0.7:8080", "change": "remove", "atMs": 91000 },
+    { "name": "web", "host": "10.0.0.7:8080", "change": "add", "atMs": 91500 }
+  ],
+  "proxies": [
+    {
+      "id": "edge-1",
+      "wave": 1,
+      "resources": {
+        "listener/http": { "acked": ["v3"] },
+        "route/main": { "acked": ["v3"] },
+        "cluster/web": { "acked": ["v3"] },
+        "endpoint/web": { "acked": ["v3"] }
+      }
+    },
+    {
+      "id": "edge-2",
+      "wave": 2,
+      "resources": {
+        "listener/http": { "acked": ["v2", "v3"] },
+        "route/main": { "acked": ["v2", "v3"] },
+        "cluster/web": { "acked": ["v2"], "nacked": [{ "version": "v3", "retries": 3 }] },
+        "endpoint/web": { "acked": ["v2"], "applying": { "version": "v3", "sinceMs": 1000 } }
+      }
+    }
+  ]
+}
